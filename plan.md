@@ -78,6 +78,48 @@ Initial adoption path:
 4. MCP surface for AI review agents.
 5. Trace-aware and generated-visual enhancements after static review value is proven.
 
+## Shippable Product Policy
+
+No milestone should end with only a demo, mock, or hand-authored session as the user-facing artifact. Internal fixtures are required for tests, evals, and replay, but the shipped surface must run against a real repository or real PR-like diff.
+
+Shippable sequence:
+
+1. **First npm artifact:** `npx qai review --base main --head HEAD` starts a local review session against the user's current repository, even if the earliest version uses deterministic analysis and limited language support.
+2. **First useful alpha:** the same command produces grounded source trails, changed-symbol impact, review queue, and initial risk heuristics for React/Next.js projects.
+3. **First AI-backed alpha:** the command adds Mapper and Risk agents with claim validation, evidence trails, cost controls, and eval gates.
+4. **First CI artifact:** GitHub Action posts grounded PR findings and links to a replayable flipbook session.
+5. **First agent artifact:** MCP and REST expose the same real review session to AI agents.
+
+The product can use internal reference repositories and seeded PRs for validation, but they must not be the only thing that works at the end of a milestone.
+
+## NPM Distribution UX
+
+The first product surface is an npm-distributed CLI that starts a local web review session:
+
+```bash
+npx qai doctor
+npx qai review --base main --head HEAD
+```
+
+Required behavior:
+
+- Detect whether the current directory is a git repository.
+- Detect base/head refs and changed files.
+- Start the local coordinator on an available port.
+- Open or print the local flipbook URL.
+- Persist session data under a local QAI cache directory.
+- Export a replay bundle without requiring provider access.
+- Fail clearly when the repo is unsupported, too large for current limits, missing git metadata, or blocked by local-only provider policy.
+
+Package expectations:
+
+- Package name: `qai` unless unavailable; otherwise use a scoped package while keeping the binary name `qai`.
+- Binary: `qai`.
+- Supported commands at the first shippable milestone: `doctor`, `review`, `replay`, `export`, and `version`.
+- No global install required; `npx qai ...` must work.
+- No SaaS account required for local-only deterministic mode.
+- Provider keys are optional until AI-backed analysis is enabled.
+
 Primary success metrics:
 
 - Reviewer says the session would have changed or improved their review.
@@ -148,7 +190,6 @@ Create this monorepo structure:
 │   ├── client/             # React flipbook UI
 │   ├── coordinator/        # Local HTTP/SSE/WebSocket server entry
 │   ├── cli/                # flipbook init, serve, index, replay
-│   ├── demo-app/           # Dogfood app with realistic bugs and flows
 │   ├── mcp-server/         # MCP transport adapter
 │   └── github-action/      # PR review automation
 ├── packages/
@@ -168,7 +209,7 @@ Create this monorepo structure:
 ├── tools/
 │   ├── bench/              # Latency, indexing, trace, and render benchmarks
 │   ├── evals/              # Agent quality and prompt regression suites
-│   └── fixtures/           # Repos, sessions, graph fixtures, screenshots
+│   └── fixtures/           # Internal reference repos, seeded PRs, graph fixtures, screenshots
 └── docs/
     ├── architecture.md
     ├── graph-protocol.md
@@ -277,7 +318,7 @@ Tasks:
 
 Acceptance:
 
-- Client can render static fixtures before coordinator integration.
+- Client can render recorded real-review streams for regression coverage before full coordinator integration.
 - Client can consume a live stream and patch the current page without losing interaction state.
 - Desktop and mobile screenshots show correctly framed pages, no overlapping text, and usable hotspot controls.
 
@@ -394,7 +435,7 @@ Tasks:
 
 Acceptance:
 
-- Demo app emits trace events during interaction without breaking app behavior.
+- Real or internal reference app interactions emit trace events without breaking app behavior.
 - Trace timeline pages correlate events to source evidence.
 - Instrumentation can be disabled cleanly and is no-op in production by default.
 
@@ -412,7 +453,7 @@ Tasks:
 Acceptance:
 
 - An AI agent can navigate the same session as a human without using the browser.
-- GitHub Action can run against a demo PR and post grounded comments.
+- GitHub Action can run against internal reference PRs and at least one real repository PR, then post grounded comments.
 - Stream semantics are consistent across client, MCP, REST, and replay.
 
 ### 11. Free-Form Image Generation
@@ -485,7 +526,7 @@ Tasks:
 
 - Add benchmark harnesses for first frame, full page, client render, indexing, vector search, trace throughput, and replay.
 - Add LLM eval harness for Mapper, Curator, Risk, Trace, and Hotspot extraction.
-- Add golden fixtures from demo app, synthetic repos, and partner-approved anonymized sessions.
+- Add golden fixtures from internal reference repositories, synthetic repos, real local review sessions, and partner-approved anonymized sessions.
 - Add dashboards or CLI reports for latency, token cost, cache hit rate, eval score, and finding quality.
 - Add CI gates for schema validation, replay determinism, benchmark smoke tests, and eval regression budgets.
 - Add product-quality evals for the PR loop: valid citation rate, seeded bug recall, high-confidence false positives, time to first useful finding, and reviewer usefulness.
@@ -513,47 +554,59 @@ Tasks:
 - Add package boundaries and placeholder exports.
 - Add CI workflow for typecheck, lint, test, and schema validation.
 - Add deterministic fixture conventions.
+- Add npm package metadata, executable CLI entrypoint, versioning convention, and local package smoke test.
+- Add `qai doctor` to verify Node version, package manager, git repo state, writable cache directory, and provider configuration.
 
 Gate:
 
 - `pnpm install`, `pnpm test`, `pnpm typecheck`, and fixture validation pass from a clean checkout.
+- `pnpm pack` produces an installable package with a working `qai --help` and `qai doctor`.
+- This milestone is infrastructure only; it is not considered a shippable user product until the CLI runs against a real repository.
 
-### Milestone 1: Static Flipbook Prototype
+### Milestone 1: Installable Local PR Review Slice
 
-Target: 2 weeks.
+Target: 2 to 3 weeks.
 
 Tasks:
 
-- Implement graph schemas, validator, and static fixtures.
-- Implement React client shell, page stack, history, breadcrumbs, hotspot overlay, and source drawer.
-- Implement at least nine templates from deterministic fixtures.
-- Implement coordinator serving fixture sessions over REST and SSE.
+- Implement `npx qai review --base <ref> --head <ref>` for the current git repository.
+- Implement graph schemas, validator, stream events, and claim/evidence/finding contracts.
+- Implement local diff ingestion: changed files, changed hunks, changed symbols, and source ranges.
+- Implement minimal TypeScript/JavaScript/TSX source scanner sufficient for React/Next.js changed-file review.
+- Implement React client shell, review queue, page stack, history, breadcrumbs, hotspot overlay, trust UX, and source drawer.
+- Implement initial real-product templates: PR overview, changed-file list, changed-symbol graph, source evidence page, claim trail, and review queue.
+- Implement coordinator serving a real local review session over REST and SSE.
+- Add npm smoke path: install package, run `qai review` in a real repository, open local UI, export replay.
 - Add screenshot tests for desktop and mobile.
 
 Gate:
 
-- A user can navigate a hand-authored drill-in graph end to end.
-- Client consumes fixture streams and replay streams.
+- A user can run `npx qai review --base main --head HEAD` in a real React/Next.js repository and get a local flipbook review session.
+- The session shows changed files, changed symbols, source evidence, claims, review queue, and replay export.
+- Client consumes live local review streams and replay streams.
 - Accessibility smoke tests pass for keyboard hotspot navigation.
+- Internal fixtures validate the same code paths, but fixture-only navigation is not sufficient for this milestone.
 
-### Milestone 2: Local Repo Intelligence
+### Milestone 2: Source Intelligence and Mapper
 
 Target: 4 to 5 weeks.
 
 Tasks:
 
-- Implement CLI `flipbook init`, `flipbook index`, `flipbook serve`, and `flipbook replay`.
+- Implement CLI `qai init`, `qai index`, `qai review`, `qai serve`, and `qai replay`.
 - Implement repository scanner, parser, symbol extraction, store, embeddings, and hybrid search.
 - Implement Mapper retrieval pipeline and structured output.
 - Implement rule-based Curator and templated generator.
-- Add demo app and seeded QA scenarios.
+- Add internal reference repositories and seeded PR scenarios for eval coverage.
 - Add indexing, retrieval, and Mapper evals.
+- Expand `qai review` from changed files to impacted areas, adjacent tests, routes, components, hooks, and config changes.
 
 Gate:
 
-- A real local app can be indexed and navigated.
+- A real local app can be indexed and reviewed from a branch diff.
 - Taps resolve to grounded source evidence.
 - Mapper evals meet initial precision and validity thresholds.
+- `qai review` works without hosted providers in deterministic/local-only mode, with clearly labeled reduced capability.
 
 ### Milestone 3: Review-Useful Risk Analysis
 
@@ -595,7 +648,7 @@ Tasks:
 
 Gate:
 
-- GitHub Action runs on demo PRs and posts grounded findings.
+- GitHub Action runs on internal reference PRs and at least one real repository PR, then posts grounded findings.
 - Reviewers can move from a PR comment into the matching flipbook page and source trail.
 - CI session exports replay locally without provider access.
 
@@ -634,7 +687,7 @@ Tasks:
 
 Gate:
 
-- Demo app interactions produce trace pages tied to source evidence.
+- Real or internal reference repository interactions produce trace pages tied to source evidence.
 - Runtime events improve at least one Risk or Mapper eval category.
 - Instrumentation overhead stays within benchmark budget.
 - Teams can use trace enrichment without adopting custom instrumentation first.
@@ -688,7 +741,7 @@ Budgets are product requirements, not assumptions:
 - Free-form page ready: p95 under 5000ms when image providers are healthy.
 - Client page patch render: p95 under 50ms for normal page sizes.
 - Vector lookup: p95 under 25ms after warm index.
-- Trace ingest: no visible app interaction regression in demo app benchmarks.
+- Trace ingest: no visible app interaction regression in real or internal reference app benchmarks.
 
 Implementation requirements:
 
@@ -712,8 +765,8 @@ Implementation requirements:
 
 Run alpha in stages:
 
-1. Internal demo app with seeded bugs, known expected drill paths, and PR fixtures.
-2. One real internal React or Next.js repository with local-only mode.
+1. One real internal React or Next.js repository with local-only mode.
+2. Internal reference PR corpus runs continuously in CI for eval coverage.
 3. Three partner frontend repositories with explicit data-handling approval.
 4. One GitHub Action integration where findings are compared against normal review comments.
 5. One agent integration through MCP.
@@ -751,7 +804,7 @@ Alpha launch gates:
 ## Definition of Done For A Release Candidate
 
 - Clean install works from a fresh checkout.
-- Local self-hosted flow works against the demo app.
+- Local self-hosted flow works against a real React/Next.js repository and branch diff.
 - Client, MCP, REST, and replay all use the same graph schemas.
 - Benchmarks and evals produce a release report.
 - Security and provider-audit checks pass.
@@ -759,7 +812,7 @@ Alpha launch gates:
 - Docs cover installation, provider setup, local-only mode, troubleshooting, and known limits.
 - At least one full QA session can be exported and replayed deterministically.
 - PR review flow works from local diff through visual drilldown, grounded risk, reviewer verdict, and replay export.
-- GitHub Action flow works on demo PRs when enabled.
+- GitHub Action flow works on internal reference PRs and at least one real repository PR when enabled.
 - Every displayed finding is backed by claims, evidence, inference labels, and validation status.
 - Prompt, model, and retrieval changes include eval diffs.
 - Provider cost and latency are visible in release reports.
@@ -768,10 +821,11 @@ Alpha launch gates:
 
 1. Create the monorepo scaffold and CI foundation.
 2. Implement `packages/shared/schemas` and graph validation before any UI or agent code.
-3. Define `Claim`, `Evidence`, `Finding`, `Hotspot`, and `StreamEvent` fixtures for the PR-review loop.
-4. Build static fixtures that represent the target experience, including seeded React/Next.js PR scenarios.
-5. Build the client shell, trust UX, review queue, and template renderer against those fixtures.
-6. Add the minimal coordinator that streams fixture pages and replay logs.
-7. Add benchmark and replay harnesses immediately, even if early thresholds are permissive.
-8. Start the demo app with seeded QA scenarios so every later agent has a stable target.
-9. Create the first eval suite before implementing the first LLM-backed agent.
+3. Add installable CLI packaging for `qai --help`, `qai doctor`, and the future `qai review` command.
+4. Define `Claim`, `Evidence`, `Finding`, `Hotspot`, and `StreamEvent` contracts for the PR-review loop.
+5. Implement local git diff ingestion for `qai review --base main --head HEAD`.
+6. Build the client shell, trust UX, review queue, and template renderer against live local review data.
+7. Add the minimal coordinator that streams real local review pages and replay logs.
+8. Add benchmark and replay harnesses immediately, even if early thresholds are permissive.
+9. Create internal reference PR scenarios for eval coverage, but keep the first milestone gate tied to a real local repository.
+10. Create the first eval suite before implementing the first LLM-backed agent.
